@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from face_replace.config import RuntimeConfig
-from face_replace.engine.base import FaceReplaceEngine
+from face_replace.engine.base import FaceReplaceEngine, FaceReplaceError
 
 
 def create_engine(config: RuntimeConfig) -> FaceReplaceEngine:
@@ -10,6 +10,6 @@ def create_engine(config: RuntimeConfig) -> FaceReplaceEngine:
 
         return InSwapperEngine(config)
 
-    raise ValueError(
+    raise FaceReplaceError(
         f"insightface does not support model {config.model!r}"
     )

@@ -84,12 +84,16 @@ class InSwapperEngine(FaceReplaceEngine):
             partial = self.model_path.with_suffix(".onnx.part")
             partial.unlink(missing_ok=True)
 
-            with requests.get(_MODEL_URL, stream=True, timeout=60) as response:
-                response.raise_for_status()
-                with partial.open("wb") as output:
-                    for chunk in response.iter_content(chunk_size=1024 * 1024):
-                        if chunk:
-                            output.write(chunk)
+            try:
+                with requests.get(_MODEL_URL, stream=True, timeout=60) as response:
+                    response.raise_for_status()
+                    with partial.open("wb") as output:
+                        for chunk in response.iter_content(chunk_size=1024 * 1024):
+                            if chunk:
+                                output.write(chunk)
+            except requests.RequestException as exc:
+                partial.unlink(missing_ok=True)
+                raise InSwapperError(f"model download failed: {exc}") from exc
 
             actual = _sha256(partial)
             if actual != _MODEL_SHA256:
@@ -99,13 +103,17 @@ class InSwapperEngine(FaceReplaceEngine):
                 )
             partial.replace(self.model_path)
 
-        analysis_dir = Path(
-            ensure_available(
-                "models",
-                "buffalo_l",
-                root=str(self.root),
+        try:
+            analysis_dir = Path(
+                ensure_available(
+                    "models",
+                    "buffalo_l",
+                    root=str(self.root),
+                )
             )
-        )
+        except Exception as exc:
+            raise InSwapperError(f"analysis asset download failed: {exc}") from exc
+
         return [self.model_path, analysis_dir]
 
     def prepare(self, references: Sequence[Path]) -> FaceReplaceSession:
