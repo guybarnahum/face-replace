@@ -2,7 +2,7 @@
 
 GPU-backed face replacement for GIF and video from 1–3 reference photos.
 
-The service is designed to preserve the target video's pose, expression, gaze, lighting, and motion while replacing facial identity. Occlusions such as hands, hair, glasses, and microphones should remain visually in front of the replaced face.
+The tool is designed to preserve the target video's pose, expression, gaze, lighting, and motion while replacing facial identity. Occlusions such as hands, hair, glasses, and microphones should remain visually in front of the replaced face.
 
 ## v0 goal
 
@@ -19,14 +19,27 @@ Produce a face-replaced output while preserving:
 - original occlusions
 - original audio for video inputs
 
+## v0 boundary
+
+v0 is intentionally CLI-only and runs on a single NVIDIA GPU worker.
+
+Target runtime:
+
+- AWS EC2 G6 / NVIDIA L4
+- CUDA required for inference
+- FFmpeg for media decode/encode
+- NVDEC/NVENC where useful
+
+Do not add an API, queue, object-storage workflow, Cloudflare layer, or autoscaling until the single-node CUDA path works well and has been benchmarked.
+
 ## Architecture
 
 ```text
 reference photos + input media
             |
             v
-      face-replace worker
-      -------------------
+      face-replace CLI
+      ----------------
       FFmpeg decode
       face detection/tracking
       identity embedding
@@ -37,8 +50,6 @@ reference photos + input media
             v
          output media
 ```
-
-The first deployment target is an AWS EC2 G6/L4 worker. Cloudflare can be added later as an API/storage edge, but the inference worker remains ordinary CUDA-capable compute.
 
 ## Model strategy
 
@@ -58,7 +69,6 @@ Measure identity fidelity, expression preservation, temporal stability, occlusio
 
 ```text
 src/face_replace/
-  api/       optional service boundary
   engine/    face-swap engine contract
   media/     FFmpeg and media handling
 scripts/     benchmarking / developer tools
@@ -68,4 +78,14 @@ docs/        architecture and decisions
 
 ## Status
 
-Initial scaffold only. The next milestone is a local single-video CLI benchmark on an NVIDIA GPU before adding queueing, S3, APIs, or autoscaling.
+Initial scaffold only. The next milestone is a single-video CUDA CLI baseline on an AWS G6/L4 worker before adding service infrastructure.
+
+Target command shape:
+
+```bash
+face-replace swap \
+  --reference face1.jpg \
+  --reference face2.jpg \
+  --target input.mp4 \
+  --output output.mp4
+```

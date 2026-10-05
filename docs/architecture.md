@@ -6,6 +6,14 @@ Keep identity replacement separate from media transport and infrastructure.
 
 The expensive operation is per-frame face inference. Everything around it should minimize copies, redundant decoding, and re-encoding.
 
+## v0 runtime
+
+v0 is a single CLI process on an AWS EC2 G6 instance with an NVIDIA L4 GPU.
+
+CUDA is required for inference. The program should fail clearly when the CUDA execution provider is unavailable rather than silently running the face model on CPU.
+
+No API, queue, object storage, Cloudflare layer, or autoscaling belongs in v0.
+
 ## v0 pipeline
 
 1. Validate 1–3 reference photos.
@@ -20,10 +28,10 @@ The expensive operation is per-frame face inference. Everything around it should
 
 ## Long video policy
 
-Do not chunk merely because a video is long. Stream frames through the worker when possible. Add fixed-duration chunks when they improve bounded retries or parallel scheduling. Preserve codec settings and timestamps so concatenation can occur without quality loss from another encode.
+Do not chunk merely because a video is long. Stream frames through the worker when possible. Add fixed-duration chunks only when they improve bounded retries, memory use, or later parallel scheduling. Preserve codec settings and timestamps so concatenation does not force another quality-losing encode.
 
 ## Infrastructure
 
-Start with one AWS G6/L4 worker. Add object storage and a queue when an external asynchronous API is needed. Scale-to-zero or ephemeral GPU workers are preferable to a permanently idle GPU for low-volume workloads.
+Start with one AWS G6/L4 worker and measure it.
 
-Cloudflare may later handle ingress, API routing, result delivery, or R2 storage. It is not the primary arbitrary CUDA inference environment.
+Only after the CUDA CLI path is correct and benchmarked should we consider object storage, a queue, asynchronous APIs, scale-to-zero workers, or a Cloudflare edge.
