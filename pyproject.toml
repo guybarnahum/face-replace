@@ -10,11 +10,20 @@ requires-python = ">=3.11"
 dependencies = [
   "numpy>=2.0",
   "pydantic>=2.9",
+  "PyYAML>=6.0",
   "onnxruntime-gpu[cuda,cudnn]>=1.30,<1.31; platform_system == 'Linux' and platform_machine == 'x86_64'",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.3"]
+provider-insightface = [
+  "onnx>=1.17,<2",
+  "opencv-python-headless>=4.10,<5",
+  "requests>=2.32,<3",
+  "scipy>=1.14,<2",
+  "scikit-image>=0.24,<1",
+  "tqdm>=4.66,<5",
+]
 
 [project.scripts]
 face-replace = "face_replace.cli:main"

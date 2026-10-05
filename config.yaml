@@ -1,0 +1,6 @@
+runtime:
+  provider: insightface
+  model: inswapper_128
+  device: cuda
+  device_id: 0
+  models_dir: models

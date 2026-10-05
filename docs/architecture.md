@@ -2,36 +2,65 @@
 
 ## Principle
 
-Keep identity replacement separate from media transport and infrastructure.
+Keep media orchestration independent from face-model implementations.
 
-The expensive operation is per-frame face inference. Everything around it should minimize copies, redundant decoding, and re-encoding.
+The expensive path is decode -> target face localization -> identity replacement -> composite -> encode. Provider/model glue belongs behind one small runtime contract so models can be compared without rewriting the media pipeline.
 
-## v0 runtime
+## Runtime selection
 
-v0 is a single CLI process on an AWS EC2 G6 instance with an NVIDIA L4 GPU.
+`config.yaml` selects the active runtime:
 
-CUDA is required for inference. The program should fail clearly when the CUDA execution provider is unavailable rather than silently running the face model on CPU.
+```yaml
+runtime:
+  provider: insightface
+  model: inswapper_128
+  device: cuda
+  device_id: 0
+  models_dir: models
+```
 
-No API, queue, object storage, Cloudflare layer, or autoscaling belongs in v0.
+Configuration chooses a provider and model; provider-specific implementation details stay in code, not in the media pipeline or CLI.
 
-## v0 pipeline
+## Contract
 
-1. Validate 1–3 reference photos.
-2. Probe target media with FFprobe.
-3. Decode frames with FFmpeg / NVIDIA hardware acceleration where useful.
-4. Detect and track the target face.
-5. Build one identity representation from the reference photos.
-6. Run the selected face-swap engine only on the relevant face crop.
-7. Produce an occlusion/visibility mask and composite into the original frame.
-8. Encode video with NVENC when available.
-9. Copy/remux source audio rather than processing it.
+`FaceReplaceEngine` has two jobs:
 
-## Long video policy
+1. fetch/validate its own model artifacts
+2. prepare a reference identity and return a reusable `FaceReplaceSession`
 
-Do not chunk merely because a video is long. Stream frames through the worker when possible. Add fixed-duration chunks only when they improve bounded retries, memory use, or later parallel scheduling. Preserve codec settings and timestamps so concatenation does not force another quality-losing encode.
+`FaceReplaceSession.replace(frame)` performs replacement on one target frame.
 
-## Infrastructure
+This shape matters for video: the model and reference identity are prepared once, then the same session is reused for every decoded frame.
 
-Start with one AWS G6/L4 worker and measure it.
+## Repository shape
 
-Only after the CUDA CLI path is correct and benchmarked should we consider object storage, a queue, asynchronous APIs, scale-to-zero workers, or a Cloudflare edge.
+```text
+config.yaml
+src/face_replace/
+  config.py                 YAML -> validated runtime config
+  runtime.py                tiny provider registry/factory
+  engine/
+    base.py                 provider-neutral contract
+  providers/
+    insightface/
+      __init__.py           model dispatch for this provider
+      inswapper.py          InSwapper-specific glue
+  media/                    decode/probe/encode; never model-specific
+  image.py                  current R2 image orchestration
+```
+
+Adding a model to an existing provider means adding its adapter and one dispatch entry. Adding a provider means adding one provider package and one registry entry. No dynamic plugin framework or inheritance hierarchy beyond the runtime contract.
+
+## CUDA policy
+
+v0 requires CUDA. Provider adapters must explicitly request CUDA and must not silently choose CPU. The current InsightFace adapter disables CPU execution-provider fallback.
+
+## Model artifacts
+
+Weights stay outside Git under `models/`. Each provider owns artifact download, cache layout, and integrity validation. Runtime configuration controls only the model cache root.
+
+Model licenses are independent from this repository's code license. Evaluation models must not be assumed commercially licensed.
+
+## Long-video direction
+
+The media layer will eventually stream frames through one prepared session. Do not reload models or recompute reference identity per frame. Tracking is an R4 concern and should be added above or within the session without changing the media contract.
