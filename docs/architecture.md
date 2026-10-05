@@ -19,7 +19,7 @@ runtime:
   models_dir: models
 ```
 
-Configuration chooses a provider and model; provider-specific implementation details stay in code, not in the media pipeline or CLI.
+Configuration chooses a provider and model at runtime; provider-specific implementation details stay in code, not in the media pipeline or CLI. `setup.sh` never reads `config.yaml`: setup installs supported provider integrations, while runtime configuration selects which installed provider/model is active.
 
 ## Contract
 

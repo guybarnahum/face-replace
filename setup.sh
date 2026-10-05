@@ -81,36 +81,21 @@ prepare_venv() {
   "$UV" venv --python "$PYTHON_VERSION" "$VENV_DIR"
 }
 
-install_provider() {
-  local provider
-  provider="$("$VENV_DIR/bin/python" - <<'PY'
-from face_replace.config import load_config
-print(load_config().runtime.provider)
-PY
-)"
-
-  case "$provider" in
-    insightface)
-      "$UV" pip install --python "$VENV_DIR/bin/python" -e '.[provider-insightface]'
-      "$UV" pip install --python "$VENV_DIR/bin/python" --no-deps 'insightface==2.0'
-      ;;
-    *)
-      echo "unsupported provider in config.yaml: $provider" >&2
-      return 1
-      ;;
-  esac
+install_supported_providers() {
+  # Install provider glue independently from config.yaml.
+  # Runtime configuration selects which installed provider/model is used.
+  "$UV" pip install --python "$VENV_DIR/bin/python" -e '.[provider-insightface]'
+  "$UV" pip install --python "$VENV_DIR/bin/python" --no-deps 'insightface==2.0'
 }
 
 verify_install() {
   "$VENV_DIR/bin/python" - <<'PY'
+import insightface
 import onnxruntime as ort
-from face_replace.config import load_config
-from face_replace.runtime import create_engine
+from face_replace.providers.insightface import create_engine
 
 assert "CUDAExecutionProvider" in ort.get_available_providers()
-config = load_config()
-engine = create_engine(config.runtime)
-print(f"{config.runtime.provider}/{config.runtime.model}: {type(engine).__name__}")
+print(f"InsightFace {insightface.__version__}")
 PY
   "$VENV_DIR/bin/face-replace" --help >/dev/null
 }
@@ -123,7 +108,7 @@ run_step "Bootstrap uv" bootstrap_uv
 run_step "Provision CPython $PYTHON_VERSION" "$UV" python install "$PYTHON_VERSION"
 run_step "Prepare virtual environment" prepare_venv
 run_step "Install core dependencies" "$UV" pip install --python "$VENV_DIR/bin/python" -e '.[dev]'
-run_step "Install configured provider" install_provider
+run_step "Install supported providers" install_supported_providers
 run_step "Verify CUDA runtime" verify_install
 
 echo
