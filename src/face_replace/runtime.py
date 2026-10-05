@@ -6,7 +6,7 @@ from face_replace.config import RuntimeConfig
 from face_replace.engine.base import FaceReplaceEngine
 
 
-class RuntimeError(RuntimeError):
+class RuntimeConfigError(RuntimeError):
     pass
 
 
@@ -17,12 +17,12 @@ _PROVIDERS = {
 
 def create_engine(config: RuntimeConfig) -> FaceReplaceEngine:
     if config.device != "cuda":
-        raise RuntimeError("face-replace v0 requires device: cuda")
+        raise RuntimeConfigError("face-replace v0 requires device: cuda")
 
     module_name = _PROVIDERS.get(config.provider)
     if module_name is None:
         supported = ", ".join(sorted(_PROVIDERS))
-        raise RuntimeError(
+        raise RuntimeConfigError(
             f"unknown provider {config.provider!r}; supported: {supported}"
         )
 

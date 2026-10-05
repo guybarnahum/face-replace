@@ -14,7 +14,7 @@ class Engine(FaceReplaceEngine):
     def __init__(self) -> None:
         self.references = []
 
-    def fetch_models(self):
+    def fetch_assets(self):
         return []
 
     def prepare(self, references):

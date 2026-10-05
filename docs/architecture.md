@@ -25,7 +25,7 @@ Configuration chooses a provider and model at runtime; provider-specific impleme
 
 `FaceReplaceEngine` has two jobs:
 
-1. fetch/validate its own model artifacts
+1. fetch/validate the assets required by its configured model
 2. prepare a reference identity and return a reusable `FaceReplaceSession`
 
 `FaceReplaceSession.replace(frame)` performs replacement on one target frame.

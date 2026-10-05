@@ -3,14 +3,15 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from face_replace.config import load_config
+from face_replace.config import ConfigError, load_config
 from face_replace.doctor import print_doctor
+from face_replace.engine.base import FaceReplaceError
 from face_replace.image import replace_image
 from face_replace.media.probe import probe
-from face_replace.runtime import create_engine
+from face_replace.runtime import RuntimeConfigError, create_engine
 
 
-def main() -> None:
+def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="face-replace")
     parser.add_argument(
         "--config",
@@ -25,22 +26,38 @@ def main() -> None:
     probe_parser = subparsers.add_parser("probe", help="Inspect target media")
     probe_parser.add_argument("media", type=Path)
 
-    models_parser = subparsers.add_parser("models", help="Manage model artifacts")
-    model_commands = models_parser.add_subparsers(dest="models_command", required=True)
-    model_commands.add_parser("fetch", help="Fetch models for configured runtime")
+    models_parser = subparsers.add_parser(
+        "models",
+        help="Manage assets for the configured model",
+    )
+    model_commands = models_parser.add_subparsers(
+        dest="models_command",
+        required=True,
+    )
+    model_commands.add_parser(
+        "fetch",
+        help="Fetch assets required by the configured model",
+    )
 
-    swap_parser = subparsers.add_parser("swap", help="Replace a face in one image")
+    swap_parser = subparsers.add_parser(
+        "swap",
+        help="Replace a face in one image",
+    )
     swap_parser.add_argument(
         "--reference",
         type=Path,
         action="append",
         required=True,
-        help="Reference face image; repeatable for engines that support it",
+        help="Reference face image; repeatable for models that support it",
     )
     swap_parser.add_argument("--target", type=Path, required=True)
     swap_parser.add_argument("--output", type=Path, required=True)
 
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    args = _parser().parse_args()
 
     if args.command == "doctor":
         raise SystemExit(0 if print_doctor() else 1)
@@ -49,23 +66,34 @@ def main() -> None:
         print(probe(args.media))
         return
 
-    config = load_config(args.config)
-    engine = create_engine(config.runtime)
+    try:
+        config = load_config(args.config)
+        engine = create_engine(config.runtime)
 
-    if args.command == "models":
-        artifacts = engine.fetch_models()
-        for artifact in artifacts:
-            print(artifact)
-        return
+        if args.command == "models":
+            artifacts = engine.fetch_assets()
+            print(f"{config.runtime.provider}/{config.runtime.model}")
+            for artifact in artifacts:
+                print(f"  ✓ {artifact}")
+            return
 
-    if args.command == "swap":
-        output = replace_image(
-            engine,
-            references=args.reference,
-            target=args.target,
-            output=args.output,
-        )
-        print(output)
+        if args.command == "swap":
+            result = replace_image(
+                engine,
+                references=args.reference,
+                target=args.target,
+                output=args.output,
+            )
+            print(
+                f"{config.runtime.provider}/{config.runtime.model} · "
+                f"prepare {result.prepare_seconds:.2f}s · "
+                f"replace {result.replace_seconds:.2f}s"
+            )
+            print(result.output)
+            return
+
+    except (ConfigError, RuntimeConfigError, FaceReplaceError) as exc:
+        raise SystemExit(f"error: {exc}") from exc
 
 
 if __name__ == "__main__":

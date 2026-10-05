@@ -4,20 +4,23 @@ import hashlib
 from pathlib import Path
 from typing import Sequence
 
-import numpy as np
-
 from face_replace.config import RuntimeConfig
-from face_replace.engine.base import FaceReplaceEngine, FaceReplaceSession, Frame
+from face_replace.engine.base import (
+    FaceReplaceEngine,
+    FaceReplaceError,
+    FaceReplaceSession,
+    Frame,
+)
 
 
 _MODEL_URL = (
-    "https://huggingface.co/tsi-org/face-swapper/"
-    "resolve/main/inswapper_128.onnx?download=true"
+    "https://github.com/deepinsight/insightface/releases/download/"
+    "model-zoo/inswapper_128.onnx"
 )
 _MODEL_SHA256 = "e4a3f08c753cb72d04e10aa0f7dbe3deebbf39567d4ead6dce08e98aa49e16af"
 
 
-class InSwapperError(RuntimeError):
+class InSwapperError(FaceReplaceError):
     pass
 
 
@@ -63,14 +66,15 @@ class InSwapperSession(FaceReplaceSession):
 
 
 class InSwapperEngine(FaceReplaceEngine):
-    """InsightFace/InSwapper adapter. Evaluation weights require separate licensing."""
+    """InsightFace/InSwapper adapter. Model weights require separate licensing."""
 
     def __init__(self, config: RuntimeConfig) -> None:
         self.config = config
         self.root = config.models_dir / "insightface"
         self.model_path = self.root / "inswapper_128.onnx"
+        self.analysis_dir = self.root / "models" / "buffalo_l"
 
-    def fetch_models(self) -> Sequence[Path]:
+    def fetch_assets(self) -> Sequence[Path]:
         import requests
         from insightface.utils import ensure_available
 
@@ -78,6 +82,8 @@ class InSwapperEngine(FaceReplaceEngine):
 
         if not self.model_path.is_file() or _sha256(self.model_path) != _MODEL_SHA256:
             partial = self.model_path.with_suffix(".onnx.part")
+            partial.unlink(missing_ok=True)
+
             with requests.get(_MODEL_URL, stream=True, timeout=60) as response:
                 response.raise_for_status()
                 with partial.open("wb") as output:
@@ -93,23 +99,23 @@ class InSwapperEngine(FaceReplaceEngine):
                 )
             partial.replace(self.model_path)
 
-        buffalo = Path(
+        analysis_dir = Path(
             ensure_available(
                 "models",
                 "buffalo_l",
                 root=str(self.root),
             )
         )
-        return [self.model_path, buffalo]
+        return [self.model_path, analysis_dir]
 
     def prepare(self, references: Sequence[Path]) -> FaceReplaceSession:
         if len(references) != 1:
             raise InSwapperError(
-                f"inswapper_128 R2 expects 1 reference, found {len(references)}"
+                f"inswapper_128 expects 1 reference, found {len(references)}"
             )
-        if not self.model_path.is_file():
+        if not self.model_path.is_file() or not self.analysis_dir.is_dir():
             raise InSwapperError(
-                "model missing; run: face-replace models fetch"
+                "model assets missing; run: face-replace models fetch"
             )
 
         import cv2

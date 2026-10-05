@@ -11,6 +11,10 @@ from numpy.typing import NDArray
 Frame = NDArray[np.uint8]
 
 
+class FaceReplaceError(RuntimeError):
+    pass
+
+
 class FaceReplaceSession(ABC):
     """Prepared identity + loaded model, reusable across target frames."""
 
@@ -23,11 +27,11 @@ class FaceReplaceEngine(ABC):
     """Provider/model-neutral face replacement contract."""
 
     @abstractmethod
-    def fetch_models(self) -> Sequence[Path]:
-        """Ensure this engine's model artifacts are present locally."""
+    def fetch_assets(self) -> Sequence[Path]:
+        """Ensure every artifact required by the configured model is cached."""
         raise NotImplementedError
 
     @abstractmethod
     def prepare(self, references: Sequence[Path]) -> FaceReplaceSession:
-        """Load models and prepare source identity once for repeated frames."""
+        """Load the model and prepare source identity once for repeated frames."""
         raise NotImplementedError

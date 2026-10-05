@@ -89,3 +89,18 @@ face-replace swap \
   --target input.mp4 \
   --output output.mp4
 ```
+
+## R2 image baseline
+
+The configured runtime is selected in `config.yaml`. Model assets are not committed.
+
+```bash
+face-replace models fetch
+
+face-replace swap \
+  --reference reference.jpg \
+  --target target.jpg \
+  --output outputs/result.jpg
+```
+
+The current baseline is InsightFace/InSwapper-128 for evaluation. InsightFace code is MIT, but its pretrained face-swap and recognition model weights require separate licensing for commercial use.
