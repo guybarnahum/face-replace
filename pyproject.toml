@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "face-replace"
+version = "0.1.0"
+description = "GPU-backed identity replacement for GIF and video"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=2.0",
+  "pydantic>=2.9",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3"]
+
+[project.scripts]
+face-replace = "face_replace.cli:main"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
